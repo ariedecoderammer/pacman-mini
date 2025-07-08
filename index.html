@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pac-Man Mini Game</title>
+  <style>
+    body {
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #container {
+      width: 756px;
+      height: 567px;
+      display: grid;
+      grid-template-columns: repeat(28, 27px);
+      grid-template-rows: repeat(21, 27px);
+      background: black;
+      position: relative;
+      border: 4px solid blue;
+    }
+
+    .tile {
+      width: 27px;
+      height: 27px;
+      box-sizing: border-box;
+    }
+
+    .wall {
+      background: blue;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: white;
+      border-radius: 50%;
+      margin: auto;
+      margin-top: 10px;
+    }
+
+    .pacman, .ghost {
+      width: 27px;
+      height: 27px;
+      position: absolute;
+      transition: top 0.2s linear, left 0.2s linear;
+      z-index: 2;
+    }
+
+    .pacman {
+      background: yellow;
+      border-radius: 50%;
+    }
+
+    .ghost {
+      border-radius: 50% 50% 0 0;
+    }
+
+    .ghost.red { background: red; }
+    .ghost.cyan { background: cyan; }
+    .ghost.pink { background: pink; }
+
+    #game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      color: red;
+      font-family: sans-serif;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="game-over">GAME OVER</div>
+
+  <!-- Dot Eating Sound -->
+  <audio id="eat-sound" src="dot.wav" preload="auto"></audio>
+
+  <!-- Background Music -->
+  <audio id="music" src="music.mp3" autoplay loop></audio>
+
+  <script>
+    const container = document.getElementById('container');
+    const gameOverText = document.getElementById('game-over');
+    const eatSound = document.getElementById('eat-sound');
+    const music = document.getElementById('music');
+
+    const rows = 21, cols = 28, tileSize = 27;
+
+    const maze = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+      [1,0,1,0,0,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,0,0,1,0,1],
+      [1,0,1,0,0,1,0,1,0,1,0,1,0,0,0,0,1,0,1,0,1,0,1,0,0,1,0,1],
+      [1,0,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,0,1,1,1,1,0,1,1,1],
+      [1,0,0,0,0,1,0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,0,0,1,0,0,0,1],
+      [1,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1],
+      [1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+      [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],
+      [1,0,1,0,0,1,0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,1,0,0,0,1,0,1],
+      [1,0,1,0,0,1,1,1,0,1,1,1,0,1,1,0,1,1,1,0,0,1,1,1,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+    while (maze.length < rows) maze.push(Array(cols).fill(1));
+
+    const dots = [];
+
+    // Draw Maze and Dots
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        if (maze[y][x] === 1) {
+          tile.classList.add('wall');
+        } else {
+          const dot = document.createElement('div');
+          dot.className = 'dot';
+          tile.appendChild(dot);
+          dots.push({ x, y, element: dot });
+        }
+        container.appendChild(tile);
+      }
+    }
+
+    // Pacman
+    const pacman = document.createElement('div');
+    pacman.className = 'pacman';
+    container.appendChild(pacman);
+    let pacmanPos = { x: 1, y: 1 };
+    moveTo(pacman, pacmanPos);
+
+    // Ghosts
+    const ghostColors = ['red', 'cyan', 'pink'];
+    const ghosts = ghostColors.map((color, i) => {
+      const el = document.createElement('div');
+      el.className = `ghost ${color}`;
+      container.appendChild(el);
+      return { el, x: 26 - i * 2, y: 14 };
+    });
+    ghosts.forEach(g => moveTo(g.el, g));
+
+    // Move pacman with keys
+    const directions = {
+      ArrowUp:    { x: 0, y: -1 },
+      ArrowDown:  { x: 0, y: 1 },
+      ArrowLeft:  { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 }
+    };
+
+    document.addEventListener('keydown', e => {
+      const dir = directions[e.key];
+      if (!dir) return;
+      const newX = pacmanPos.x + dir.x;
+      const newY = pacmanPos.y + dir.y;
+      if (maze[newY]?.[newX] === 0) {
+        pacmanPos = { x: newX, y: newY };
+        moveTo(pacman, pacmanPos);
+        eatDot(pacmanPos);
+        checkCollision();
+      }
+    });
+
+    function moveTo(el, pos) {
+      el.style.left = pos.x * tileSize + 'px';
+      el.style.top = pos.y * tileSize + 'px';
+    }
+
+    function eatDot(pos) {
+      const i = dots.findIndex(d => d.x === pos.x && d.y === pos.y);
+      if (i !== -1) {
+        dots[i].element.remove();
+        dots.splice(i, 1);
+        eatSound.currentTime = 0;
+        eatSound.play();
+      }
+    }
+
+    function checkCollision() {
+      for (const ghost of ghosts) {
+        if (ghost.x === pacmanPos.x && ghost.y === pacmanPos.y) {
+          gameOver();
+        }
+      }
+    }
+
+    function gameOver() {
+      gameOverText.style.display = 'block';
+      music.pause();
+      clearInterval(ghostInterval);
+    }
+
+    // Ghost movement
+    const ghostInterval = setInterval(() => {
+      for (const ghost of ghosts) {
+        const options = [
+          { x: ghost.x + 1, y: ghost.y },
+          { x: ghost.x - 1, y: ghost.y },
+          { x: ghost.x, y: ghost.y + 1 },
+          { x: ghost.x, y: ghost.y - 1 }
+        ].filter(p => maze[p.y]?.[p.x] === 0 && !(p.x === pacmanPos.x && p.y === pacmanPos.y));
+        if (options.length) {
+          const next = options[Math.floor(Math.random() * options.length)];
+          ghost.x = next.x;
+          ghost.y = next.y;
+          moveTo(ghost.el, ghost);
+        }
+      }
+      checkCollision();
+    }, 400);
+  </script>
+<script>
+  const music = document.getElementById('music');
+
+  // Play music after user interacts (key press)
+  document.addEventListener('keydown', () => {
+    if (music.paused) {
+      music.play().catch(e => console.log('Music play error:', e));
+    }
+  });
+</script>
+
+<script src="game.js"></script>
+</body>
+</html>
